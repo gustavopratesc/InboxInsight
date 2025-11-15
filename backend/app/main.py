@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 from PyPDF2 import PdfReader
 
-# Importe seus módulos
 from app.schemas import (
     EmailRequest,
     EmailResponse,
@@ -16,9 +15,7 @@ from app.schemas import (
 from app.services.ai_service import analyze_email_with_ai, validate_json
 
 
-# Define um semáforo para limitar as requisições paralelas.
-# A Groq é rápida, mas o plano gratuito pode ter limites de requisições/segundo.
-# limitar a 5 chamadas simultâneas para evitar erros "429 Too Many Requests".
+# Limite seguro de requisições simultâneas
 SEMAPHORE = asyncio.Semaphore(5)
 
 
@@ -32,42 +29,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def split_emails_smart(text: str) -> List[str]:
-    """
-    Divide o texto usando a mesma lógica Regex "smart" do frontend.
-    Separa por múltiplas quebras de linha e filtra blocos pequenos.
-    """
-    if len(text) < 2000 and "\n\n" not in text: # Otimização simples
-         return [text.strip()]
 
-    parts = re.split(r"\n\s*\n{2,}", text)
-    
-    # Filtra partes que são muito curtas (assinaturas, rodapés, etc.)
-    valid_parts = [p.strip() for p in parts if len(p.strip()) > 50]
-    
-    if len(valid_parts) > 1:
-        return valid_parts
-    else:
-        # Se a divisão falhar, retorna o texto inteiro como um único item
+# SPLIT INTELIGENTE 
+def split_emails_smart(text: str) -> List[str]:
+    raw_parts = re.split(r"\n\s*\n{1,}", text)
+
+    valid = []
+    for block in raw_parts:
+        block = block.strip()
+
+        if len(block) < 20:
+            continue
+
+        if not re.search(r"[A-Za-z]", block):
+            continue
+
+        # e-mail válido costuma ter verbos de ação
+        if not re.search(r"(enviar|segue|confirmar|agendar|revisar|favor|precisa|anexo)", block, re.IGNORECASE):
+            if len(block) < 180:
+                continue
+
+        valid.append(block)
+
+    if not valid:
         return [text.strip()]
 
+    return valid
 
-@app.get("/")
-def read_root():
-    return {"message": "API oK!"}
 
+#  PROCESSAMENTO DE 1 E-MAIL
 async def process_single_email(email_text: str) -> dict:
-    """
-    Processa um único e-mail de forma assíncrona e trata exceções.
-    """
     if not email_text.strip():
-        return None # Ignora e-mails vazios
+        return None
 
-    
-    # Agora, o loop await só executará 5 tarefas de process_single_email 
-    # por vez, graças ao semáforo.
     async with SEMAPHORE:
-    
         try:
             loop = asyncio.get_event_loop()
             ai_response = await loop.run_in_executor(
@@ -76,76 +71,64 @@ async def process_single_email(email_text: str) -> dict:
             data = validate_json(ai_response)
             data["email"] = email_text
             return data
+
         except Exception as e:
             return {
                 "categoria": "Erro",
                 "subcategoria": "-",
                 "sentimento": "-",
-                "reply_main": "Não foi possível gerar resposta.",
-                "reply_short": "Falha ao processar.",
-                "reply_formal": "Não foi possível concluir a análise deste e-mail.",
-                "reply_technical": "O processamento deste texto falhou devido a formato inválido ou resposta incorreta da IA.",
+                "reply_main": "",
+                "reply_short": "",
+                "reply_formal": "",
+                "reply_technical": "",
                 "explicacao": f"Falha ao processar IA: {str(e)}",
-                "email": email_text  # 
+                "email": email_text
             }
 
 
+@app.get("/")
+def home():
+    return {"message": "API OK!"}
+
+
+# ENDPOINTS 
+
 @app.post("/analyze", response_model=EmailResponse)
 async def analyze_email(payload: EmailRequest):
-    email_text = payload.email_text
-    try:
-        data = await process_single_email(email_text)
-        if data["categoria"] == "Erro":
-            raise HTTPException(status_code=500, detail=data["explicacao"])
-        return data
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f'Erro ao processar IA {str(e)}'
-        )
+    data = await process_single_email(payload.email_text)
+    return data
 
 
-@app.post('/analyze-batch-json', response_model=BatchEmailResponse)
+@app.post("/analyze-batch-json", response_model=BatchEmailResponse)
 async def analyze_batch_json(payload: BatchEmailRequest):
-    
-    tasks = [process_single_email(email) for email in payload.emails if email.strip()]
+    tasks = [process_single_email(t) for t in payload.emails]
     results = await asyncio.gather(*tasks)
-    responses = [r for r in results if r]
-    return {"resultados": responses}
+    return {"resultados": [r for r in results if r]}
 
 
-@app.post('/analyze-batch-txt', response_model=BatchEmailResponse)
-async def analyze_multiple_txt(file: UploadFile = File(...)):
-    conteudo_bytes = await file.read()
-    conteudo = conteudo_bytes.decode("utf-8", errors="ignore")
+@app.post("/analyze-batch-txt", response_model=BatchEmailResponse)
+async def analyze_batch_txt(file: UploadFile = File(...)):
+    content = (await file.read()).decode("utf-8", errors="ignore")
+    blocks = split_emails_smart(content)
 
-    emails = split_emails_smart(conteudo)
-
-    tasks = [process_single_email(email) for email in emails]
+    tasks = [process_single_email(b) for b in blocks]
     results = await asyncio.gather(*tasks)
-    responses = [r for r in results if r] # Filtra nulos
-    return {"resultados": responses}
+    return {"resultados": [r for r in results if r]}
 
 
-@app.post('/analyze-pdf', response_model=BatchEmailResponse)
-async def analyze_multiple_pdf(file: UploadFile = File(...)):
+@app.post("/analyze-pdf", response_model=BatchEmailResponse)
+async def analyze_batch_pdf(file: UploadFile = File(...)):
     if file.content_type != "application/pdf":
-        raise HTTPException(status_code=400, detail="O arquivo não é PDF válido!")
-    
-    pdf_bytes = await file.read()
-    reader = PdfReader(io.BytesIO(pdf_bytes))
+        raise HTTPException(400, detail="Arquivo não é PDF válido.")
 
-    texto_completo = ""
-    for i, pagina in enumerate(reader.pages):
-        extraido = pagina.extract_text() or ""
-        texto_completo += extraido
-        if i < len(reader.pages) - 1:
-            texto_completo += "\n\n--PAGE_BREAK--\n\n"
+    reader = PdfReader(io.BytesIO(await file.read()))
 
-    emails = split_emails_smart(texto_completo)
+    text = ""
+    for p in reader.pages:
+        text += (p.extract_text() or "") + "\n\n"
 
-    tasks = [process_single_email(email) for email in emails]
+    blocks = split_emails_smart(text)
+
+    tasks = [process_single_email(b) for b in blocks]
     results = await asyncio.gather(*tasks)
-    responses = [r for r in results if r] # Filtra nulos
-
-    return {"resultados": responses}
+    return {"resultados": [r for r in results if r]}

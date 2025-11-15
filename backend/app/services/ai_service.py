@@ -1,74 +1,60 @@
 import os
-from groq import Groq
 import json
 import re
 import unicodedata
+from groq import Groq
 
 
-
+#  STOPWORDS
 STOPWORDS_PT = {
-    "a", "o", "e", "é", "de", "do", "da", "mas", "ou", "para", "um", "uma",
-    "que", "com", "por", "sobre", "em", "na", "no", "nos", "nas",
-    "se", "já", "não", "sim", "como", "também", "porque", "qual",
-    "isso", "esse", "essa", "foi", "ser", "tem", "têm"
+    "a","o","e","é","de","do","da","mas","ou","para","um","uma","que","com","por",
+    "sobre","em","na","no","nos","nas","se","já","não","sim","como","também",
+    "porque","qual","isso","esse","essa","foi","ser","tem","têm"
 }
 
 CUSTOM_STOPWORDS = {
-    "obrigado", "obrigada", "att", "atenciosamente",
-    "qualquer", "coisa", "favor", "por", "gentileza"
+    "obrigado","obrigada","att","atenciosamente","favor","gentileza"
 }
 
 def normalize(s):
-    return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("utf-8")
+    return unicodedata.normalize("NFKD", s).encode("ascii","ignore").decode("utf-8")
+
 
 STOPWORDS_PT = {normalize(p) for p in STOPWORDS_PT}
 CUSTOM_STOPWORDS = {normalize(p) for p in CUSTOM_STOPWORDS}
 
 
+# PRÉ-PROCESSAMENTO ROBUSTO 
 def preprocess_email(text: str) -> str:
-    text = text.strip().replace("\n", " ").replace("\r", "")
+    if not text:
+        return ""
 
-    # remove acentos
-    # CORREÇÃO: Corrigido o typo de 'unicodedadata' para 'unicodedata'
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("utf-8")
-
-    # Normalização básica
+    # remover BOM e espaçamentos invisíveis
+    text = text.replace("\ufeff", "")
+    text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\s+", " ", text)
-    text = text.lower()
 
-    # remove assinaturas
-    assinaturas = ["att", "atenciosamente", "obrigado", "grato", "sds"]
+    # Normalização leve
+    text = unicodedata.normalize("NFKD", text).encode("ascii","ignore").decode("utf-8")
+    text = text.strip()
+
+    # remover assinaturas repetitivas
+    assinaturas = ["att","atenciosamente","obrigado","grato"]
     for p in assinaturas:
-        text = re.sub(rf"\b{p}\b", "", text)
+        text = re.sub(rf"\b{p}\b","", text, flags=re.IGNORECASE)
 
-    text = re.sub(r"[^a-z0-9,.;:?!@%/\-\(\) ]", "", text)
-
-    # remove disclaimers comuns
-    text = re.sub(r"confidencial.*$", "", text)
-
-    palavras = text.split()
-    palavras = [
-        p for p in palavras
-        if p not in STOPWORDS_PT and p not in CUSTOM_STOPWORDS
-    ]
-
-    return " ".join(palavras).strip()
+    return text.strip()
 
 
 
+# CLIENT GROQ 
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-api_key = os.getenv("GROQ_API_KEY")
-
-client = Groq(api_key=api_key)
 
 SYSTEM_PROMPT = """
-Você é um classificador avançado chamado InboxInsight. 
-Sua missão é analisar e-mails e responder EXCLUSIVAMENTE em JSON válido.
+Você é o classificador InboxInsight. Responda APENAS com JSON válido.
 
-NUNCA escreva nada fora do JSON.
-
-Sua resposta deve seguir exatamente este formato:
-
+Formato obrigatório:
 {
   "categoria": "Produtivo ou Improdutivo",
   "subcategoria": "string",
@@ -91,13 +77,7 @@ Subcategoria deve ser uma das seguintes opções:
 - Urgência / Prazo Crítico
 - Alinhamento / Planejamento
 - Reunião / Agendamento
-- Outro
-
-INSTRUÇÕES:
-- Não explique nada.
-- Não gere texto fora do JSON.
-- Não use markdown.
-- Não quebre a estrutura do JSON.
+- Outro    
 
 Regras para geração das respostas:
 
@@ -133,51 +113,50 @@ Indicadores de IMPRODUTIVO:
 
 Adicione no campo "explicacao" um resumo objetivo dos motivos que justificam a classificação.
 
+NUNCA gere texto fora do JSON.
 """
 
 
+# CHAMADA PRINCIPAL
 def analyze_email_with_ai(email_text: str) -> str:
+    processed = preprocess_email(email_text)
 
-    
-    # Chamada de pré-processamento única
-    email_text_processed = preprocess_email(email_text)
-    
-    print("=== ENVIADO PARA IA ===")
-    print(email_text_processed)
-    
+    # protege contra blocos inválidos
+    if len(processed) < 25:
+        return json.dumps({
+            "categoria": "Erro",
+            "subcategoria": "-",
+            "sentimento": "-",
+            "explicacao": "Bloco ignorado: texto muito curto.",
+            "reply_main": "",
+            "reply_short": "",
+            "reply_formal": "",
+            "reply_technical": ""
+        })
+
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": email_text_processed} # Envia o texto processado
+            {"role": "user", "content": processed}
         ],
         temperature=0.2
     )
 
-    response_content = response.choices[0].message.content
-    print("=== RESPOSTA DA IA ===", response_content)
-
-    return response_content
+    return response.choices[0].message.content
 
 
+# VALIDA JSON 
 def validate_json(text: str) -> dict:
-    """
-    Tenta parsear o JSON, corrigindo se a IA adicionar texto extra.
-    """
     try:
-        # Tenta parsear diretamente
         return json.loads(text)
     except json.JSONDecodeError:
         start = text.find("{")
-        end = text.rfind("}") + 1 
-        
-        if start != -1 and end != -1 and end > start:
-            json_text = text[start:end]
+        end = text.rfind("}") + 1
+        if start != -1 and end != -1:
             try:
-                # Tenta parsear o bloco extraído
-                return json.loads(json_text)
-            except json.JSONDecodeError:
-                raise ValueError("Resposta da IA está inválida e não foi possível corrigir")
-        
-        
-        raise ValueError("JSON invalido e não é possivel recuperar")
+                return json.loads(text[start:end])
+            except:
+                pass
+
+        raise ValueError("JSON inválido e não foi possível corrigir")
