@@ -54,15 +54,17 @@ def preprocess_email(text: str) -> str:
     return " ".join(palavras).strip()
 
 
-load_dotenv()
+api_key = os.getenv("GROQ_API_KEY")
+print("DEBUG API KEY:", api_key)
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+client = Groq(api_key=api_key)
 
 
 SYSTEM_PROMPT = """(mantido igual — não repeti aqui para economizar espaço)"""
 
 
 def analyze_email_with_ai(email_text: str) -> str:
+    print("DEBUG API KEY:", os.getenv("GROQ_API_KEY"))
     email_text = preprocess_email(email_text)
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
