@@ -74,17 +74,19 @@ async def process_single_email(email_text: str) -> dict:
                 None, analyze_email_with_ai, email_text
             )
             data = validate_json(ai_response)
+            data["email"] = email_text
             return data
         except Exception as e:
             return {
                 "categoria": "Erro",
                 "subcategoria": "-",
                 "sentimento": "-",
-                "reply_main": "",
-                "reply_short": "",
-                "reply_formal": "",
-                "reply_technical": "",
-                "explicacao": f"Falha ao processar IA: {str(e)}"
+                "reply_main": "Não foi possível gerar resposta.",
+                "reply_short": "Falha ao processar.",
+                "reply_formal": "Não foi possível concluir a análise deste e-mail.",
+                "reply_technical": "O processamento deste texto falhou devido a formato inválido ou resposta incorreta da IA.",
+                "explicacao": f"Falha ao processar IA: {str(e)}",
+                "email": email_text  # 
             }
 
 
