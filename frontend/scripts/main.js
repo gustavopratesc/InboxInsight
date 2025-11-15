@@ -2,10 +2,12 @@ console.log("main.js carregado!");
 
 import { setupThemeToggle } from "./theme.js";
 import { setupFileUpload } from "./fileUpload.js";
+
 import {
   analyzeEmail,
   analyzeBatchJSON,
-  analyzeBatchTXT
+  analyzeBatchTXT,
+  analyzePDF
 } from "./api.js";
 
 import {
@@ -15,30 +17,24 @@ import {
 } from "./history.js";
 
 
-// SPLIT INTELIGENTE — VERSÃO CORRIGIDA
+
+// SPLIT INTELIGENTE
 
 
 function splitEmailsSmart(text) {
-  // Se for pequeno demais → apenas 1 email
   if (text.length < 2000) {
     return [text.trim()];
   }
 
-  //  Divide por blocos grandes (2+ linhas vazias)
   const parts = text.split(/\n\s*\n{2,}/g);
 
   const valid = parts
     .map(p => p.trim())
     .filter(p => p.length > 50);
 
-  if (valid.length > 1) {
-    return valid;
-  }
-
-  return [text.trim()];
+  return valid.length > 1 ? valid : [text.trim()];
 }
 
-// Função pública usada pelo restante do sistema
 function splitEmails(text) {
   return splitEmailsSmart(text);
 }
@@ -46,6 +42,8 @@ function splitEmails(text) {
 
 
 // DOM READY
+
+
 document.addEventListener("DOMContentLoaded", () => {
 
   setupThemeToggle();
@@ -75,9 +73,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastData = null;
 
 
- 
+  
   // RENDER 1 EMAIL
   
+
   function renderSingleResult(data, save = true) {
     badgeCategory.textContent = data.categoria;
     badgeSubcategory.textContent = data.subcategoria;
@@ -110,9 +109,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 
-
-  // RENDER LISTA TXT PDF JSON
   
+  // RENDER LISTA (TXT, PDF, JSON)
+  
+
   function renderBatchResults(list) {
     const results = document.getElementById("results");
     results.innerHTML = "";
@@ -146,7 +146,6 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
 
-      // salva cada email no histórico também
       saveToHistory({
         categoria: item.categoria,
         subcategoria: item.subcategoria,
@@ -162,7 +161,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 
+  
   // HISTÓRICO — clique
+  
 
   document.getElementById("historyList").addEventListener("click", (e) => {
     const item = e.target.closest(".history-item");
@@ -171,13 +172,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const index = item.dataset.index;
     const history = JSON.parse(localStorage.getItem("history") || "[]");
 
-    const data = history[index].full;
-    renderSingleResult(data, false);
+    renderSingleResult(history[index].full, false);
   });
 
 
+
+  
   // BOTÃO ANALISAR
   
+
   analyzeBtn.addEventListener("click", async () => {
 
     // Se digitou algo → ignorar arquivos
@@ -188,7 +191,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const raw = textarea.value.trim();
 
-    // TXT
+
+    
+    // PROCESSAR TXT
+    
     if (window.lastTxtFile) {
       loading.classList.remove("hidden");
       try {
@@ -202,21 +208,16 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // PDF
+
+  
+    // PROCESSAR PDF
+    
     if (window.lastPdfFile) {
       loading.classList.remove("hidden");
+
       try {
-        const formData = new FormData();
-        formData.append("file", window.lastPdfFile);
-
-        const response = await fetch("http://localhost:8000/analyze-pdf", {
-          method: "POST",
-          body: formData
-        });
-
-        const data = await response.json();
+        const data = await analyzePDF(window.lastPdfFile);
         renderBatchResults(data.resultados);
-
       } catch {
         alert("Erro ao enviar PDF.");
       }
@@ -226,7 +227,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // TEXTO
+
+    
+    // TEXTO DIGITADO
+    
     if (!raw) {
       alert("Digite ou cole um e-mail.");
       return;
@@ -252,7 +256,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
 
+
+  
   // BOTÕES DE RESPOSTAS ALTERNATIVAS
+  
 
   btnShort.addEventListener("click", () => {
     if (lastData) replyAlt.textContent = lastData.reply_short;
@@ -268,7 +275,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
+  
   // COPIAR RESPOSTA
+  
 
   copyMainBtn.addEventListener("click", async () => {
     const text = replyMain.textContent.trim();
@@ -279,7 +288,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
 
+
+  
   // LIMPAR HISTÓRICO
+  
+
   clearBtn.addEventListener("click", () => {
     if (confirm("Deseja mesmo limpar todo o histórico?")) {
       clearHistory();
@@ -288,9 +301,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
 
+
   
   // EXPORTAR PARA EXCEL
   
+
   exportBtn.addEventListener("click", () => {
     const history = JSON.parse(localStorage.getItem("history") || "[]");
 
@@ -310,19 +325,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(rows);
-
-    rows.forEach((row, idx) => {
-      const excelRow = idx + 2;
-      const isProd = row.Categoria.toLowerCase() === "produtivo";
-      const cell = ws[`A${excelRow}`];
-
-      if (cell) {
-        cell.s = {
-          fill: { fgColor: { rgb: isProd ? "C6EFCE" : "FFC7CE" } },
-          font: { bold: true }
-        };
-      }
-    });
 
     XLSX.utils.book_append_sheet(wb, ws, "Emails");
     XLSX.writeFile(wb, "inboxinsight_emails.xlsx");
