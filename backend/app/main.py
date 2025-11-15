@@ -18,7 +18,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5500", "http://localhost:5500"], # lista dominios que podem acessar API 
+    allow_origins=["*"], # lista dominios que podem acessar API 
     allow_credentials=True, # permite cookies
     allow_methods=["*"], # libera get, post,, patch put, delete, update
     allow_headers=["*"], # libera envio do Json
