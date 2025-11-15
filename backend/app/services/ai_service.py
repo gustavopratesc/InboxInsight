@@ -1,6 +1,6 @@
 import os
 from groq import Groq
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 import json
 import re
 import unicodedata
@@ -60,11 +60,86 @@ print("DEBUG API KEY:", api_key)
 client = Groq(api_key=api_key)
 
 
-SYSTEM_PROMPT = """(mantido igual — não repeti aqui para economizar espaço)"""
+SYSTEM_PROMPT = """
+Você é um classificador avançado chamado InboxInsight. 
+Sua missão é analisar e-mails e responder EXCLUSIVAMENTE em JSON válido.
+
+NUNCA escreva nada fora do JSON.
+
+Sua resposta deve seguir exatamente este formato:
+
+{
+  "categoria": "Produtivo ou Improdutivo",
+  "subcategoria": "string",
+  "sentimento": "positivo, neutro ou negativo",
+  "explicacao": "string",
+  "reply_main": "string",
+  "reply_short": "string",
+  "reply_formal": "string",
+  "reply_technical": "string"
+}
+
+Subcategoria deve ser uma das seguintes opções:
+
+- Solicitação de Informação
+- Pedido de Ação
+- Atualização de Status
+- Confirmação / Follow-up
+- Reclamação / Problema
+- Agradecimento
+- Urgência / Prazo Crítico
+- Alinhamento / Planejamento
+- Reunião / Agendamento
+- Outro
+
+INSTRUÇÕES:
+- Não explique nada.
+- Não gere texto fora do JSON.
+- Não use markdown.
+- Não quebre a estrutura do JSON.
+
+Regras para geração das respostas:
+
+- reply_main: resposta natural, amigável e objetiva.
+- reply_short: resposta extremamente curta (1 frase).
+- reply_formal: resposta educada e profissional.
+- reply_technical: resposta detalhada e orientada a processo, mencionando dados, sistemas ou etapas quando fizer sentido.
+
+Sempre adapte a resposta ao conteúdo do e-mail recebido.
+Cada resposta deve ser única e não pode ser apenas uma versão reescrita da outra.
+
+Considere que todos os e-mails pertencem ao ambiente corporativo.
+Considere que o remetente e o destinatário estão trabalhando juntos em um projeto ou atividade profissional.
+Nunca gere respostas informais ou inadequadas.
+
+Você deve sempre classificar o e-mail usando linguagem profissional.
+
+Não invente dados ou informações que não estão no e-mail original.
+
+Para classificar e-mails como PRODUTIVO ou IMPRODUTIVO, considere:
+
+Indicadores de PRODUTIVO:
+- presença de verbos de ação como: enviar, revisar, confirmar, agendar, atualizar.
+- palavras corporativas como: reunião, projeto, prazo, anexo, documento.
+- linguagem com objetivo claro ou solicitação.
+- presença de datas, prazos ou itens mencionados.
+
+Indicadores de IMPRODUTIVO:
+- termos de spam como: promoção, grátis, clique aqui, ganhe, oferta.
+- mensagens vagas sem objetivo: "bom dia", "beleza", "kkk".
+- felicitações sem contexto profissional.
+- conteúdo irrelevante ou que não exige ação.
+
+Adicione no campo "explicacao" um resumo objetivo dos motivos que justificam a classificação.
+
+"""
 
 
 def analyze_email_with_ai(email_text: str) -> str:
     print("DEBUG API KEY:", os.getenv("GROQ_API_KEY"))
+    email_text = preprocess_email(email_text)
+    print("=== ENVIADO PARA IA ===")
+    print(email_text)
     email_text = preprocess_email(email_text)
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
@@ -74,6 +149,9 @@ def analyze_email_with_ai(email_text: str) -> str:
         ],
         temperature=0.2
     )
+
+    print("=== RESPOSTA DA IA ===")
+    print(response.choices[0].message.content)
 
     return response.choices[0].message.content
 
