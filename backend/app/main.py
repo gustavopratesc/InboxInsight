@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.schemas import EmailRequest, EmailResponse
 from app.services.ai_service import analyze_email_with_ai, validate_json
-from app.nltk_setup import setup_nltk
 from typing import List
 from fastapi import UploadFile, File, HTTPException
 from app.schemas import (
@@ -14,7 +13,6 @@ from app.schemas import (
 import io
 from PyPDF2 import PdfReader
 
-setup_nltk()
 
 app = FastAPI()
 
