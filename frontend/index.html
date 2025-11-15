@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>InboxInsight</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  >
+  <link rel="shortcut icon" href="assets/icons/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="style/base.css" />
+  <link rel="stylesheet" href="style/layout.css" />
+  <link rel="stylesheet" href="style/components.css" />
+  <link rel="stylesheet" href="style/utilities.css" />
+  <link rel="stylesheet" href="style/animations.css" />
+  <link rel="stylesheet" href="style/responsive.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="app-root">
+    
+    <header class="header">
+      <div class="header-left">
+        <span class="logo-mark"><img class="email-icon" src="assets/icons/email-icon.png" alt="email-icon"></span>
+        <span class="logo-text">InboxInsight</span>
+      </div>
+      <div class="header-right">
+        <button id="themeToggle" class="icon-button" aria-label="Toggle theme">
+          <img class="moon" src="assets/icons/moon-icon.png" alt="moon-icon">
+        </button>
+      </div>
+    </header>
+
+    
+    <main class="main">
+      
+      <section class="card analysis-card fade-in">
+        <h1 class="card-title">Analise seu e-mail</h1>
+        <p class="card-subtitle">
+          Cole o conteúdo do e-mail ou carregue um arquivo .txt / .pdf para classificá-lo como <strong>Produtivo</strong> ou <strong>Improdutivo</strong> e receba uma sugestão de resposta de IA.
+        </p>
+
+        
+        <label class="field-label" for="emailText">Conteúdo de e-mail</label>
+        <textarea
+          id="emailInput"
+          class="textarea"
+          placeholder="Cole o conteúdo do e-mail aqui..."
+        ></textarea>
+
+        
+        <div class="divider">
+          <span class="divider-line"></span>
+          <span class="divider-text">Ou</span>
+          <span class="divider-line"></span>
+        </div>
+
+        
+        <label class="upload-area" for="fileInput">
+          <input type="file" id="fileInput" accept=".txt,.pdf" hidden />
+          <div class="upload-inner">
+            <div class="div-upload-icon"><img class="upload-icon" src="assets/icons/upload-icon.png" alt="upload-icon"></div>
+            <div class="upload-text">
+              <strong>Clique para carregar</strong> ou arraste e solte<br />
+              <span class="upload-subtext">.txt ou .pdf file</span>
+            </div>
+          </div>
+          <p id="fileName" class="upload-filename"></p>
+          <button id="removeFileBtn" class="btn btn-secondary-small hidden" style="margin-top: 10px;">
+          Remover arquivo
+          </button>
+        </label>
+
+        
+        <button id="analyzeBtn" class="btn btn-primary btn-full">
+          Analise seus emails
+        </button>
+
+        
+        <div id="loadingState" class="loading hidden">
+          <div class="spinner"></div>
+          <span>Analisando o email através da IA...</span>
+        </div>
+      </section>
+
+      
+      <section id="results" class="card results-card hidden fade-in">
+        <h2 class="card-title">Resultado da Análise</h2>
+
+        <div class="badges-row">
+          <span id="badgeCategory" class="badge badge-neutral">Category</span>
+          <span id="badgeSubcategory" class="badge badge-soft">Subcategory</span>
+          <span id="badgeSentiment" class="badge badge-soft">Sentiment</span>
+        </div>
+
+        <div class="reply-block">
+          <div class="reply-header">
+            <h3>Resposta sugerida</h3>
+            <button id="copyMainReply" class="btn btn-ghost-small">
+              Copiar Resposta
+            </button>
+          </div>
+          <p id="replyMain" class="reply-text"></p>
+        </div>
+
+        <div class="alt-replies">
+          <h3>Estilos Alternativos</h3>
+          <div class="alt-buttons">
+            <button id="btnShort" class="btn btn-secondary-small">
+              Curto 
+            </button>
+            <button id="btnFormal" class="btn btn-secondary-small">
+              Formal 
+            </button>
+            <button id="btnTechnical" class="btn btn-secondary-small">
+              Técnico
+            </button>
+          </div>
+          <p id="replyAlt" class="reply-text alt"></p>
+        </div>
+
+      </section>
+
+      
+      <section id="historySection" class="card history-card hidden fade-in">
+        <div class="history-header">
+          <h2 class="card-title">Análises Recentes</h2>
+          <button id="clearHistoryBtn" class="btn btn-ghost-small">Limpar histórico</button>
+          <button id="exportExcel" class="btn btn-secondary-small" style="margin-top:16px">
+          Exportar para Excel
+        </button>
+        </div>
+        <div id="historyList" class="history-list">
+          
+        </div>
+      </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <p class="footer-text">
+        InboxInsight • Classificação e respostas de e-mail com inteligência artificial • Desenvolvido com Python + FastAPI + HTML/CSS/JS | Feito por Gustavo Prates Caetano 
+      </p>
+    </footer>
+  </div>
+
+  <script type="module" src="scripts/main.js"></script>
+</body>
+</html>

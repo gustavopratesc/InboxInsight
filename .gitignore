@@ -1,0 +1,39 @@
+# Ambiente virtual
+venv/
+ENV/
+env/
+.venv/
+
+# Arquivos de ambiente
+.env
+*.env
+
+# Arquivos do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.pkl
+
+# Cache do editor
+.vscode/
+.idea/
+
+# Arquivos temporários
+*.log
+*.tmp
+*.temp
+*.cache
+
+# Build / Compilação
+dist/
+build/
+*.egg-info/
+
+# Sistema operacional
+Thumbs.db
+.DS_Store
+
+# Node (para quando fizer deploy do front)
+node_modules/

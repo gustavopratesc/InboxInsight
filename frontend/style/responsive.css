@@ -1,0 +1,10 @@
+@media (max-width: 768px) {
+  .main {
+    margin-top: 16px;
+    padding-bottom: 32px;
+  }
+
+  .card {
+    padding: 20px 18px 22px;
+  }
+}
