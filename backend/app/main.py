@@ -13,6 +13,7 @@ from app.schemas import (
     BatchEmailResponse,
 )
 from app.services.ai_service import analyze_email_with_ai, validate_json
+from app.services.ai_service import preprocess_email, clean_signatures
 
 
 # Limite seguro de requisições simultâneas
@@ -32,35 +33,63 @@ app.add_middleware(
 
 # SPLIT INTELIGENTE 
 def split_emails_smart(text: str) -> List[str]:
-    raw_parts = re.split(r"\n\s*\n{1,}", text)
 
-    valid = []
-    for block in raw_parts:
-        block = block.strip()
+    END_MARKERS = [
+        r"\batenciosamente\b",
+        r"\batt\b",
+        r"\bobrigado\b",
+        r"\bobrigada\b",
+        r"\bgrato\b",
+        r"\bcordialmente\b",
+        r"\babraços\b",
+        r"\benviado do meu iphone\b",
+        r"--+",
+        r"—+",
+        r"___+"
+    ]
 
-        if len(block) < 20:
+    # Quebra em linhas
+    linhas = text.split("\n")
+
+    emails = []
+    buffer = []
+
+    for linha in linhas:
+        clean = linha.strip()
+
+        # Ignora linha vazia sozinha
+        if clean == "":
+            buffer.append("")
             continue
 
-        if not re.search(r"[A-Za-z]", block):
-            continue
+        buffer.append(clean)
 
-        # e-mail válido costuma ter verbos de ação
-        if not re.search(r"(enviar|segue|confirmar|agendar|revisar|favor|precisa|anexo)", block, re.IGNORECASE):
-            if len(block) < 180:
-                continue
+        # CONFERE SE É MARCADOR DE FINAL DE EMAIL
+        for marker in END_MARKERS:
+            if re.search(marker, clean, flags=re.IGNORECASE):
+                bloco = "\n".join(buffer).strip()
+                if len(bloco) > 40:  # evita lixo
+                    emails.append(bloco)
+                buffer = []
+                break
 
-        valid.append(block)
+    # Último bloco, se sobrou algo
+    if buffer:
+        bloco_final = "\n".join(buffer).strip()
+        if len(bloco_final) > 40:
+            emails.append(bloco_final)
 
-    if not valid:
-        return [text.strip()]
+    return emails if emails else [text.strip()]
 
-    return valid
 
 
 #  PROCESSAMENTO DE 1 E-MAIL
 async def process_single_email(email_text: str) -> dict:
     if not email_text.strip():
         return None
+
+    email_text = clean_signatures(email_text)
+    email_text = preprocess_email(email_text)
 
     async with SEMAPHORE:
         try:
