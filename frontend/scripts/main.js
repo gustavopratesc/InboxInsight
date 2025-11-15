@@ -162,7 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
   
-  // HISTÓRICO — clique
+  // HISTÓRICO
   
 
   document.getElementById("historyList").addEventListener("click", (e) => {

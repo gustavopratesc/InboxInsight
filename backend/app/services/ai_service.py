@@ -1,9 +1,10 @@
 import os
 from groq import Groq
-# from dotenv import load_dotenv
 import json
 import re
 import unicodedata
+
+
 
 STOPWORDS_PT = {
     "a", "o", "e", "é", "de", "do", "da", "mas", "ou", "para", "um", "uma",
@@ -17,7 +18,6 @@ CUSTOM_STOPWORDS = {
     "qualquer", "coisa", "favor", "por", "gentileza"
 }
 
-# --- Normalizar stopwords (remove acentos e evita falhas no preprocessamento) ---
 def normalize(s):
     return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("utf-8")
 
@@ -29,6 +29,7 @@ def preprocess_email(text: str) -> str:
     text = text.strip().replace("\n", " ").replace("\r", "")
 
     # remove acentos
+    # CORREÇÃO: Corrigido o typo de 'unicodedadata' para 'unicodedata'
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("utf-8")
 
     # Normalização básica
@@ -54,11 +55,11 @@ def preprocess_email(text: str) -> str:
     return " ".join(palavras).strip()
 
 
+
+
 api_key = os.getenv("GROQ_API_KEY")
-print("DEBUG API KEY:", api_key)
 
 client = Groq(api_key=api_key)
-
 
 SYSTEM_PROMPT = """
 Você é um classificador avançado chamado InboxInsight. 
@@ -109,7 +110,7 @@ Sempre adapte a resposta ao conteúdo do e-mail recebido.
 Cada resposta deve ser única e não pode ser apenas uma versão reescrita da outra.
 
 Considere que todos os e-mails pertencem ao ambiente corporativo.
-Considere que o remetente e o destinatário estão trabalhando juntos em um projeto ou atividade profissional.
+Considere que o remtente e o destinatário estão trabalhando juntos em um projeto ou atividade profissional.
 Nunca gere respostas informais ou inadequadas.
 
 Você deve sempre classificar o e-mail usando linguagem profissional.
@@ -136,35 +137,47 @@ Adicione no campo "explicacao" um resumo objetivo dos motivos que justificam a c
 
 
 def analyze_email_with_ai(email_text: str) -> str:
-    print("DEBUG API KEY:", os.getenv("GROQ_API_KEY"))
-    email_text = preprocess_email(email_text)
+
+    
+    # Chamada de pré-processamento única
+    email_text_processed = preprocess_email(email_text)
+    
     print("=== ENVIADO PARA IA ===")
-    print(email_text)
-    email_text = preprocess_email(email_text)
+    print(email_text_processed)
+    
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": email_text}
+            {"role": "user", "content": email_text_processed} # Envia o texto processado
         ],
         temperature=0.2
     )
 
-    print("=== RESPOSTA DA IA ===")
-    print(response.choices[0].message.content)
+    response_content = response.choices[0].message.content
+    print("=== RESPOSTA DA IA ===", response_content)
 
-    return response.choices[0].message.content
+    return response_content
 
 
 def validate_json(text: str) -> dict:
+    """
+    Tenta parsear o JSON, corrigindo se a IA adicionar texto extra.
+    """
     try:
+        # Tenta parsear diretamente
         return json.loads(text)
     except json.JSONDecodeError:
         start = text.find("{")
-        end = text.find("}") + 1
-        if start != -1 and end != -1:
+        end = text.rfind("}") + 1 
+        
+        if start != -1 and end != -1 and end > start:
+            json_text = text[start:end]
             try:
-                return json.loads(text[start:end])
-            except:
+                # Tenta parsear o bloco extraído
+                return json.loads(json_text)
+            except json.JSONDecodeError:
                 raise ValueError("Resposta da IA está inválida e não foi possível corrigir")
-        raise ValueError("Json invalido e não é possivel recuperar")
+        
+        
+        raise ValueError("JSON invalido e não é possivel recuperar")
