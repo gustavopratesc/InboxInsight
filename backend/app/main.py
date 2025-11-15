@@ -18,8 +18,8 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # lista dominios que podem acessar API 
-    allow_credentials=True, # permite cookies
+    allow_origins=["https://inbox-insight-virid.vercel.app"],
+    allow_credentials=False, # permite cookies
     allow_methods=["*"], # libera get, post,, patch put, delete, update
     allow_headers=["*"], # libera envio do Json
 )
