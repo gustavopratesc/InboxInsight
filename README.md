@@ -16,7 +16,7 @@ https://inbox-insight-virid.vercel.app
 - Backend em FastAPI com processamento assíncrono  
 - Frontend moderno em HTML/CSS/JS  
 - Integração com Groq (LLaMA 3.1)  
-- Suporte a múltiplos formatos: texto, TXT e PDF  
+- Suporte a múltiplos formatos: texto, e arquivos (TXT e PDF)  
 - Exportação de resultados  
 - Histórico local de consultas  
 - Modo escuro/claro inspirado em layouts minimalistas como Lovable
@@ -25,7 +25,7 @@ https://inbox-insight-virid.vercel.app
 
 ## Tecnologias Utilizadas
 
-### Backend
+### Back-end
 - Python 3.10+
 - FastAPI
 - Uvicorn
@@ -33,13 +33,14 @@ https://inbox-insight-virid.vercel.app
 - AsyncIO + Semaphore (controle de paralelismo)
 - Groq API (LLaMA 3.1-8B Instant)
 
-### Frontend
+### Front-end
 - HTML5  
 - CSS3 (layout minimalista baseado no Lovable)  
 - JavaScript Vanilla  
 - LocalStorage para histórico  
 - Upload inteligente de PDF/TXT  
-- Split avançado de blocos de e-mail  
+- Split avançado de blocos de e-mail
+- Lovable (Insipiração layout)
 
 ### Infraestrutura
 - Backend hospedado no Render  
@@ -114,6 +115,7 @@ O sistema extrai cada bloco utilizando marcadores de finalização e limpeza ava
 - PDFs com colunas ou tabelas podem gerar blocos desconexos  
 - E-mails muito curtos podem ser descartados  
 - E-mails com muitas quantidades e grandes podem gerar conflitos
+- Arquivos PDFs e TXT possuem mais chances de falha de análise
 
 ### Sobre a IA
 - Pode devolver JSON mal formatado  
