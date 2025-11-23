@@ -48,37 +48,36 @@ def split_emails_smart(text: str) -> List[str]:
         r"___+"
     ]
 
-    # Quebra em linhas
     linhas = text.split("\n")
-
     emails = []
     buffer = []
 
-    for linha in linhas:
+    for i, linha in enumerate(linhas):
         clean = linha.strip()
-
-        # Ignora linha vazia sozinha
-        if clean == "":
-            buffer.append("")
-            continue
-
         buffer.append(clean)
 
-        # CONFERE SE É MARCADOR DE FINAL DE EMAIL
+        # Verifica se limpa contém um possível marcador de encerramento
         for marker in END_MARKERS:
             if re.search(marker, clean, flags=re.IGNORECASE):
-                bloco = "\n".join(buffer).strip()
-                if len(bloco) > 40:  # evita lixo
-                    emails.append(bloco)
-                buffer = []
+
+                # CHECAGEM CRUCIAL: existe conteúdo útil depois?
+                resto = "\n".join(linhas[i+1:]).strip()
+
+                # Se o resto é pequeno, consideramos o final do e-mail
+                if len(resto) < 40:
+                    bloco = "\n".join(buffer).strip()
+                    if len(bloco) > 60:
+                        emails.append(bloco)
+                    buffer = []
                 break
 
-    # Último bloco, se sobrou algo
+    # Último bloco
     if buffer:
         bloco_final = "\n".join(buffer).strip()
-        if len(bloco_final) > 40:
+        if len(bloco_final) > 60:
             emails.append(bloco_final)
 
+    # Se nada foi separado, retorna o texto inteiro
     return emails if emails else [text.strip()]
 
 
@@ -137,8 +136,11 @@ async def analyze_batch_json(payload: BatchEmailRequest):
 
 @app.post("/analyze-batch-txt", response_model=BatchEmailResponse)
 async def analyze_batch_txt(file: UploadFile = File(...)):
-    content = (await file.read()).decode("utf-8", errors="ignore")
-    blocks = split_emails_smart(content)
+    content = (await file.read()).decode("utf-8", errors="ignore").strip()
+    if len(content) > 1500:
+        blocks = [content]
+    else:
+        blocks = split_emails_smart(content)
 
     tasks = [process_single_email(b) for b in blocks]
     results = await asyncio.gather(*tasks)
@@ -154,9 +156,16 @@ async def analyze_batch_pdf(file: UploadFile = File(...)):
 
     text = ""
     for p in reader.pages:
-        text += (p.extract_text() or "") + "\n\n"
-
-    blocks = split_emails_smart(text)
+        page_text = p.extract_text()
+        if page_text:
+            text += page_text + "\n\n"
+            
+    text = text.strip()
+    
+    if len(text) > 1500:
+        blocks = [text]
+    else:
+        blocks = split_emails_smart(text)
 
     tasks = [process_single_email(b) for b in blocks]
     results = await asyncio.gather(*tasks)

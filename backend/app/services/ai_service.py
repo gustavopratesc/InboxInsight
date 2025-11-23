@@ -173,7 +173,7 @@ IMPORTANTE:
 Nunca rotule como improdutivo apenas porque o texto é curto.
 Sempre tente interpretar o contexto real antes de decidir.
 
-
+Se o e-mail contém convite para etapa, confirmação de recebimento, deadline, instruções ou aprovação, classifique como produtivo
 
 """
 
