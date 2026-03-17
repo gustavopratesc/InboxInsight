@@ -1,7 +1,7 @@
 # InboxInsight – Classificador Inteligente de E-mails
 
 O InboxInsight é uma plataforma completa para análise, categorização e resposta automática de e-mails utilizando IA generativa.
-O sistema foi projetado para case da vaga estágio da AutoU - Digital Transformation with AI. A versão atual é limitada e comporta no máximo 10 e-mails curtos.
+A versão atual é limitada e comporta no máximo 10 e-mails curtos.
 
 **Rodar 1º o back-end:**  
 https://inboxinsight-x8w5.onrender.com
